@@ -1,0 +1,299 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101522">
+<title>RepLog — Calisthenics Tracker</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #101522;
+  --card: #1b2333;
+  --accent: #83f0b2;
+  --muted: #a7b1c5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #f5f7ff;
+  font-family: system-ui, sans-serif;
+}
+header {
+  padding: 24px 18px;
+  border-bottom: 1px solid #30394b;
+}
+header h1 { margin: 0; font-size: 30px; }
+header h1 span { color: var(--accent); }
+header p, .muted { color: var(--muted); }
+main { max-width: 760px; margin: auto; padding: 18px; }
+.card {
+  background: var(--card);
+  border: 1px solid #30394b;
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+h2 { margin-top: 0; font-size: 19px; }
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.stat {
+  background: #252f42;
+  border-radius: 12px;
+  padding: 12px 8px;
+}
+.stat strong { display: block; font-size: 23px; }
+.stat small { color: var(--muted); }
+label { display: block; margin: 12px 0 6px; }
+input, select, button {
+  font: inherit;
+  border-radius: 9px;
+  padding: 11px;
+}
+input, select {
+  width: 100%;
+  color: white;
+  background: #101522;
+  border: 1px solid #414c60;
+}
+button {
+  cursor: pointer;
+  border: 0;
+  background: var(--accent);
+  color: #101522;
+  font-weight: 700;
+}
+button:focus-visible, input:focus-visible,
+select:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+.primary { width: 100%; margin-top: 15px; }
+.exercise {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid #30394b;
+  padding: 13px 0;
+}
+.exercise:last-child { border-bottom: 0; }
+.exercise p { margin: 5px 0 0; color: var(--muted); }
+.small-btn { padding: 8px 11px; }
+.danger { background: #ffb4b4; }
+#message { color: var(--accent); min-height: 20px; }
+footer { text-align: center; color: var(--muted); padding: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rep<span>Log</span> ⚡</h1>
+  <p>Your training. Your progress. Your log.</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>📊 Your dashboard</h2>
+    <div class="stats">
+      <div class="stat">
+        <strong id="total">0</strong>
+        <small>Workouts</small>
+      </div>
+      <div class="stat">
+        <strong id="sets">0</strong>
+        <small>Total sets</small>
+      </div>
+      <div class="stat">
+        <strong id="reps">0</strong>
+        <small>Total reps</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>🏋️ Log a workout</h2>
+
+    <label for="workout">Workout</label>
+    <select id="workout">
+      <option>Workout A — Push</option>
+      <option>Workout B — Pull</option>
+      <option>Full Body</option>
+    </select>
+
+    <label for="exercise">Exercise</label>
+    <select id="exercise">
+      <option>Push-ups</option>
+      <option>Incline push-ups</option>
+      <option>Chin-ups</option>
+      <option>Bodyweight squats</option>
+      <option>Reverse lunges</option>
+      <option>Glute bridges</option>
+      <option>Plank</option>
+      <option>Prone Y-T raises</option>
+    </select>
+
+    <label for="setCount">Number of sets</label>
+    <input id="setCount" type="number" min="1" max="20" value="3">
+
+    <label for="repCount">Reps per set (or seconds for plank)</label>
+    <input id="repCount" type="number" min="1" max="300" value="10">
+
+    <button class="primary" id="logButton">+ Save exercise</button>
+    <p id="message" role="status"></p>
+  </section>
+
+  <section class="card">
+    <h2>🗓️ Workout history</h2>
+    <div id="history" class="muted">Your saved workouts will appear here.</div>
+    <button class="small-btn" id="exportButton">Export backup</button>
+    <label for="importFile">Restore a backup</label>
+    <input id="importFile" type="file" accept=".json,application/json">
+  </section>
+  <footer>Built for consistency, not perfection. ✨</footer>
+</main>
+
+<script>
+const KEY = "replog-data-v1";
+let entries = [];
+
+try {
+  entries = JSON.parse(localStorage.getItem(KEY) || "[]");
+  if (!Array.isArray(entries)) entries = [];
+} catch {
+  entries = [];
+}
+
+const el = id => document.getElementById(id);
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(entries));
+    render();
+    return true;
+  } catch {
+    el("message").textContent =
+      "Could not save. Export a backup or free some browser storage.";
+    return false;
+  }
+}
+
+function render() {
+  el("total").textContent =
+    new Set(entries.map(e => e.date)).size;
+  el("sets").textContent =
+    entries.reduce((sum, e) => sum + e.sets, 0);
+  el("reps").textContent =
+    entries.reduce((sum, e) => sum + e.sets * e.reps, 0);
+
+  const history = el("history");
+  history.replaceChildren();
+
+  if (!entries.length) {
+    history.textContent = "No workouts yet. Log your first exercise!";
+    return;
+  }
+
+  [...entries].reverse().forEach(entry => {
+    const row = document.createElement("div");
+    row.className = "exercise";
+
+    const details = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = entry.exercise;
+
+    const info = document.createElement("p");
+    info.textContent =
+      `${entry.workout} · ${entry.sets} × ${entry.reps}` +
+      (entry.exercise === "Plank" ? " sec" : " reps") +
+      ` · ${entry.date}`;
+
+    details.append(title, info);
+
+    const remove = document.createElement("button");
+    remove.className = "small-btn danger";
+    remove.textContent = "Delete";
+    remove.setAttribute("aria-label", "Delete " + entry.exercise);
+    remove.addEventListener("click", () => {
+      if (confirm("Delete this exercise entry?")) {
+        entries = entries.filter(e => e.id !== entry.id);
+        save();
+      }
+    });
+
+    row.append(details, remove);
+    history.append(row);
+  });
+}
+
+el("logButton").addEventListener("click", () => {
+  const sets = Number(el("setCount").value);
+  const reps = Number(el("repCount").value);
+
+  if (!Number.isInteger(sets) || sets < 1 || sets > 20 ||
+      !Number.isInteger(reps) || reps < 1 || reps > 300) {
+    el("message").textContent = "Enter valid sets and reps.";
+    return;
+  }
+
+  entries.push({
+    id: Date.now() + "-" + Math.random().toString(36).slice(2),
+    date: new Date().toLocaleDateString("en-CA"),
+    workout: el("workout").value,
+    exercise: el("exercise").value,
+    sets,
+    reps
+  });
+
+  if (save()) el("message").textContent = "Workout saved! 💪";
+});
+
+el("exportButton").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(entries, null, 2)], {
+    type: "application/json"
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "replog-backup.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+el("importFile").addEventListener("change", async event => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const data = JSON.parse(await file.text());
+    const valid = Array.isArray(data) && data.every(e =>
+      e && typeof e.id === "string" &&
+      typeof e.date === "string" &&
+      typeof e.workout === "string" &&
+      typeof e.exercise === "string" &&
+      Number.isInteger(e.sets) && e.sets >= 1 && e.sets <= 20 &&
+      Number.isInteger(e.reps) && e.reps >= 1 && e.reps <= 300
+    );
+
+    if (!valid) throw new Error("Invalid backup");
+    if (!confirm("Replace current workout history with this backup?")) return;
+
+    const previous = entries;
+    entries = data;
+    if (!save()) entries = previous;
+    else el("message").textContent = "Backup restored!";
+  } catch {
+    el("message").textContent = "That backup file is not valid.";
+  } finally {
+    event.target.value = "";
+  }
+});
+
+render();
+</script>
+</body>
+</html>
